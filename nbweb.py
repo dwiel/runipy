@@ -55,7 +55,9 @@ def _run_code(code):
     except NotebookError:
         print "FIXME"
 
-    exporter = HTMLExporter()
+    from jinja2 import FileSystemLoader
+    fsl = FileSystemLoader('/home/ubuntu/runipy')
+    exporter = HTMLExporter(template_file='custom', extra_loaders=[fsl])
 
     output, _ = exporter.from_notebook_node(nb_runner.nb)
     
