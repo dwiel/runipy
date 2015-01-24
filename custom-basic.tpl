@@ -11,3 +11,11 @@
 
 {% block input %}
 {%- endblock input %}
+
+{% block output %}
+{%- if output.output_type == 'pyout' -%}
+    <pre>{{ output.text | ansi2html }}</pre>
+{%- else -%}
+    {{ super() }}
+{%- endif -%}
+{% endblock output %}
