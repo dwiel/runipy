@@ -98,22 +98,3 @@ def _run_code(code):
     return output
 
 
-def _run_notebook(notebook_as_json_stream, skip_exceptions=True):
-    nb = read(notebook_as_json_stream, 'json')
-
-    nb['worksheets'][0]['cells'][0]['input'] = "print 1\n"
-
-    nb_runner = NotebookRunner(nb, True, True, '/tmp')
-
-    try:
-        nb_runner.run_notebook(skip_exceptions=skip_exceptions)
-    except NotebookError:
-        print "FIXME"
-
-    exporter = HTMLExporter()
-
-    output, _ = exporter.from_notebook_node(nb_runner.nb)
-    
-    return output
-
-
