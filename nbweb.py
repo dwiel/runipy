@@ -1,5 +1,5 @@
 import inspect
-import os
+import re
 
 from runipy.notebook_runner import NotebookRunner, NotebookError
 from IPython.nbformat.current import read
@@ -12,17 +12,42 @@ from flask import request
 app = Flask(__name__)
 
 
+def assert_valid_key_value(k, v):
+    if not re.match("[_A-Za-z][_a-zA-Z0-9]*$", k):
+        raise ValueError(
+            '{k} is not a valid argument name'.format(k=k)
+        )
+                
+    # not easy to escape perfectly... do this for now
+    if '"""' in v:
+        raise ValueError(
+            'cant use """ quotes in the value.  sorry'
+        )
+        
+    return True
+
+
+def extract_def_src(fn):
+    lines = inspect.getsourcelines(fn)
+    for i, line in enumerate(lines[0]):
+        if line.strip()[:4] == 'def ':
+            break
+
+    return ''.join(lines[0][i:])
+
+
 def flask_notebook(fn):
     def wrapper():
         try:
-            lines = inspect.getsourcelines(fn)
-            src = ''.join(lines[0][2:])
+            # FIXME: look for first line starting with def or
+            # something like that
+            src = extract_def_src(fn)
             
             args = []
             for k, v in request.args.iteritems():
-                # FIXME: only alpha_num in k
-                # FIXME: escape? v
-                args.append('{k}="{v}",'.format(k=k, v=v))
+                assert_valid_key_value(k, v)
+                args.append('{k}="""{v}""",'.format(k=k, v=v))
+            
             call = '{fn}({args})'.format(
                 fn=fn.__name__,
                 args=', '.join(args)
@@ -35,7 +60,12 @@ def flask_notebook(fn):
             print e
             raise
 
-    return wrapper
+    # otherwise flask complains that there are multiple functions with
+    # the name 'wrapper'
+    import random
+    wrapper.__name__ = 'wrapper' + str(random.random())
+
+    return app.route('/' + fn.__name__)(wrapper)
 
 
 def _run_code(code):
@@ -57,7 +87,7 @@ def _run_code(code):
 
     from jinja2 import FileSystemLoader
     fsl = FileSystemLoader('/home/ubuntu/runipy')
-    exporter = HTMLExporter(template_file='custom', extra_loaders=[fsl])
+    exporter = HTMLExporter(template_file='custom-basic', extra_loaders=[fsl])
 
     output, _ = exporter.from_notebook_node(nb_runner.nb)
     
@@ -83,10 +113,14 @@ def _run_notebook(notebook_as_json_stream, skip_exceptions=True):
     return output
 
 
-@app.route('/p')
 @flask_notebook
 def p(x):
-    print x
+    x = int(x)
+    plot([x, x**2, x**3, x**4])
+
+@flask_notebook
+def error(x=None):
+    1/0
 
 
 if __name__ == '__main__':
