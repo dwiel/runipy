@@ -6,10 +6,7 @@ from IPython.nbformat.current import read
 
 from IPython.nbconvert.exporters.html import HTMLExporter
 
-from flask import Flask
 from flask import request
-
-app = Flask(__name__)
 
 
 def assert_valid_key_value(k, v):
@@ -36,36 +33,43 @@ def extract_def_src(fn):
     return ''.join(lines[0][i:])
 
 
-def flask_notebook(fn):
-    def wrapper():
-        try:
-            # FIXME: look for first line starting with def or
-            # something like that
-            src = extract_def_src(fn)
-            
-            args = []
-            for k, v in request.args.iteritems():
-                assert_valid_key_value(k, v)
-                args.append('{k}="""{v}""",'.format(k=k, v=v))
-            
-            call = '{fn}({args})'.format(
-                fn=fn.__name__,
-                args=', '.join(args)
-            )
+class flask_notebook(object):
+    def __init__(self, app=None):
+        self.app = app
+    
+    def __call__(self, fn):
+        def wrapper():
+            try:
+                # FIXME: look for first line starting with def or
+                # something like that
+                src = extract_def_src(fn)
 
-            src = src + '\n' + call
+                args = []
+                for k, v in request.args.iteritems():
+                    assert_valid_key_value(k, v)
+                    args.append('{k}="""{v}""",'.format(k=k, v=v))
 
-            return _run_code(src)
-        except Exception as e:
-            print e
-            raise
+                call = '{fn}({args})'.format(
+                    fn=fn.__name__,
+                    args=', '.join(args)
+                )
 
-    # otherwise flask complains that there are multiple functions with
-    # the name 'wrapper'
-    import random
-    wrapper.__name__ = 'wrapper' + str(random.random())
+                src = src + '\n' + call
 
-    return app.route('/' + fn.__name__)(wrapper)
+                return _run_code(src)
+            except Exception as e:
+                print e
+                raise
+
+        # otherwise flask complains that there are multiple functions with
+        # the name 'wrapper'
+        import random
+        wrapper.__name__ = 'wrapper' + str(random.random())
+
+        if self.app:
+            return self.app.route('/' + fn.__name__)(wrapper)
+        else:
+            return wrapper
 
 
 def _run_code(code):
@@ -113,15 +117,3 @@ def _run_notebook(notebook_as_json_stream, skip_exceptions=True):
     return output
 
 
-@flask_notebook
-def p(x):
-    x = int(x)
-    plot([x, x**2, x**3, x**4])
-
-@flask_notebook
-def error(x=None):
-    1/0
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8443)
