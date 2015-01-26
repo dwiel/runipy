@@ -75,7 +75,7 @@ class flask_notebook(object):
 def _run_code(code):
     """ code is a string """
     
-    notebook_filename = '/home/ubuntu/notebook.ipynb'
+    notebook_filename = 'notebook.ipynb'
     notebook_as_json_stream = open(notebook_filename)
     
     nb = read(notebook_as_json_stream, 'json')
